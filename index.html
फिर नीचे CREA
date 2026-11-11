@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Blaster Game</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;
+ background:linear-gradient(135deg,#10152f,#242b54);
+ color:white;
+ font-family:Arial,sans-serif;
+ text-align:center;
+ min-height:100vh;
+ padding:20px 10px;
+}
+h1{
+ color:#ffd54a;
+ font-size:30px;
+ margin:10px 0;
+}
+.score{
+ font-size:23px;
+ margin:18px;
+ font-weight:bold;
+}
+.board{
+ display:grid;
+ grid-template-columns:repeat(10,1fr);
+ gap:4px;
+ max-width:420px;
+ margin:20px auto;
+ background:#10172f;
+ padding:7px;
+ border-radius:12px;
+}
+.cell{
+ aspect-ratio:1;
+ background:#303957;
+ border-radius:4px;
+}
+.cell.filled{background:#29d9f3}
+.pieces{
+ display:flex;
+ justify-content:space-around;
+ gap:8px;
+ max-width:420px;
+ margin:25px auto;
+}
+.piece{
+ display:grid;
+ grid-template-columns:repeat(4,20px);
+ grid-template-rows:repeat(4,20px);
+ gap:3px;
+ padding:8px;
+ background:#20294c;
+ border-radius:10px;
+ cursor:pointer;
+}
+.block{background:#ffb52e;border-radius:3px}
+.empty{background:transparent}
+.piece.selected{
+ outline:3px solid #fff;
+}
+button{
+ border:0;
+ border-radius:25px;
+ background:#ffb52e;
+ color:#171b32;
+ padding:13px 30px;
+ font-size:17px;
+ font-weight:bold;
+ margin:10px;
+}
+.info{color:#cbd3ff;font-size:14px}
+</style>
+</head>
+<body>
+
+<h1>🧱 BLOCK BLASTER</h1>
+<div class="score">SCORE: <span id="score">0</span></div>
+
+<div class="info">किसी ब्लॉक को चुनें और खाली जगह पर लगाएं!</div>
+
+<div class="board" id="board"></div>
+
+<div class="pieces" id="pieces"></div>
+
+<button onclick="restart()">🔄 RESTART</button>
+
+<script>
+const board=document.getElementById("board");
+const piecesBox=document.getElementById("pieces");
+const scoreText=document.getElementById("score");
+
+let grid=[];
+let score=0;
+let shapes=[
+ [[0,0]],
+ [[0,0],[0,1]],
+ [[0,0],[1,0]],
+ [[0,0],[0,1],[0,2]],
+ [[0,0],[1,0],[2,0]],
+ [[0,0],[0,1],[1,0],[1,1]],
+ [[0,0],[0,1],[0,2],[1,1]],
+ [[0,0],[1,0],[1,1],[2,1]],
+ [[0,0],[0,1],[0,2],[1,0]],
+ [[0,0],[1,0],[2,0],[3,0]]
+];
+let current=[];
+let selected=-1;
+
+function restart(){
+ grid=Array.from({length:10},()=>Array(10).fill(0));
+ score=0;
+ scoreText.textContent=score;
+ selected=-1;
+ drawBoard();
+ newPieces();
+}
+
+function drawBoard(){
+ board.innerHTML="";
+ for(let r=0;r<10;r++){
+  for(let c=0;c<10;c++){
+   let cell=document.createElement("div");
+   cell.className="cell"+(grid[r][c]?" filled":"");
+   cell.onclick=()=>place(r,c);
+   board.appendChild(cell);
+  }
+ }
+}
+
+function newPieces(){
+ current=[];
+ for(let i=0;i<3;i++){
+  current.push(shapes[Math.floor(Math.random()*shapes.length)]);
+ }
+ selected=-1;
+ drawPieces();
+}
+
+function drawPieces(){
+ piecesBox.innerHTML="";
+ current.forEach((shape,index)=>{
+  let p=document.createElement("div");
+  p.className="piece"+(selected===index?" selected":"");
+  for(let r=0;r<4;r++){
+   for(let c=0;c<4;c++){
+    let b=document.createElement("div");
+    b.className="empty";
+    if(shape.some(([x,y])=>x===r&&y===c)){
+     b.className="block";
+    }
+    p.appendChild(b);
+   }
+  }
+  p.onclick=()=>{
+   selected=index;
+   drawPieces();
+  };
+  piecesBox.appendChild(p);
+ });
+}
+
+function place(r,c){
+ if(selected===-1){
+  alert("पहले नीचे से एक ब्लॉक चुनें!");
+  return;
+ }
+ let shape=current[selected];
+
+ for(let [x,y] of shape){
+  if(r+x>=10||c+y>=10||grid[r+x][c+y]){
+   alert("यहाँ जगह खाली नहीं है!");
+   return;
+  }
+ }
+
+ for(let [x,y] of shape){
+  grid[r+x][c+y]=1;
+ }
+ score+=shape.length*10;
+
+ current[selected]=null;
+ clearLines();
+ drawBoard();
+
+ if(current.every(p=>p===null)){
+  newPieces();
+ }else{
+  drawPieces();
+ }
+
+ if(!current.some(p=>p&&canFit(p))){
+  setTimeout(()=>{
+   alert("GAME OVER! आपका स्कोर: "+score);
+  },100);
+ }
+}
+
+function clearLines(){
+ let rows=[];
+ let cols=[];
+
+ for(let r=0;r<10;r++){
+  if(grid[r].every(v=>v===1)) rows.push(r);
+ }
+ for(let c=0;c<10;c++){
+  if(grid.every(row=>row[c]===1)) cols.push(c);
+ }
+
+ rows.forEach(r=>grid[r].fill(0));
+ cols.forEach(c=>{
+  for(let r=0;r<10;r++)grid[r][c]=0;
+ });
+
+ score+=(rows.length+cols.length)*100;
+ scoreText.textContent=score;
+}
+
+function canFit(shape){
+ for(let r=0;r<10;r++){
+  for(let c=0;c<10;c++){
+   if(shape.every(([x,y])=>
+    r+x<10&&c+y<10&&!grid[r+x][c+y]
+   )) return true;
+  }
+ }
+ return false;
+}
+
+restart();
+</script>
+</body>
+</html>
